@@ -1,0 +1,60 @@
+wc-apreggio
+
+This is a proof of concept implementation for an extension for the [way-cooler compositor](https://github.com/way-cooler/way-cooler).
+This extension enables easy addition of modal key-bindings inspired by Vi.
+Instead of carrying out an action after hitting a key-combination, a mode may be entered instead where new key-combinations are made available.
+You could set `Alt+m` to enter `move`-mode for instance, where the arrow keys can be used to move the current window until you press `return` or `escape`.
+
+To use this extension, add the following to your `init.lua`:
+```
+--load apreggio
+local apreggio = require("apreggio")
+
+--create some shortcuts and convenience functions
+local Mode = apreggio.Mode
+local key = apreggio.key
+local chain = apreggio.chain
+local spawn_once = util.program.spawn_once
+--return back to normal mode after spawning a program
+local function spawn_return(prg)
+  return function()
+    util.program.spawn(prg)
+    normal:mode()()
+  end
+end
+
+--add some modes
+local normal = Mode.new()
+local spawn = Mode.new("spawn")
+local move = Mode.new("move")
+
+--add respective key bindings
+normal:add({
+  key({ mod }, "s", spawn:mode()),
+  key({ mod }, "return", spawn_once("termite")),
+  key({ mod }, "m", move:mode()),
+})
+
+spawn:add({
+  key("s", spawn_return("termite")),
+  chain({ "f", "x" }, spawn_return("firefox")),
+  chain(
+    {
+      { { "shift" }, "f", },
+      "x"
+    },
+    spawn_return("firefox")
+  ),
+})
+
+move:add({
+  key("left", "move_active_left"),
+  key("down", "move_active_down"),
+  key("up", "move_active_up"),
+  key("right", "move_active_right"),
+  key("return", normal:mode()),
+})
+
+--enter normal mode
+normal:mode()()
+```
