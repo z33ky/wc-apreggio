@@ -4,6 +4,7 @@ This is a proof of concept implementation for an extension for the [way-cooler c
 This extension enables easy addition of modal key-bindings inspired by Vi.
 Instead of carrying out an action after hitting a key-combination, a mode may be entered instead where new key-combinations are made available.
 You could set `Alt+m` to enter `move`-mode for instance, where the arrow keys can be used to move the current window until you press `return` or `escape`.
+`escape` exits to `normal`-mode by default. When starting to enter keys of chain-bindings, `escape` resets the state to the beginning of the current mode, i.e. in the example below after pressing `Alt+s` to enter `spawn`-mode and then pressing `f` followed by `escape` returns to `spawn`-mode proper. A second `escape` would return to `normal`-mode.
 
 To use this extension, add the following to your `init.lua`:
 ```
@@ -55,6 +56,5 @@ move:add({
   key("return", normal:mode()),
 })
 
---enter normal mode
-normal:mode()()
+normal:enter()
 ```

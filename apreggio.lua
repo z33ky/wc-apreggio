@@ -24,13 +24,11 @@ end
 function Mode.add(self, bindings)
   local escape_bound = false
   for _, binding in ipairs(bindings) do
-    local keys, action = table.unpack(binding)
-
     --TODO: explain what's done here
     local current = self.bindings
-    for _, key in ipairs(keys) do
+    for _, key in ipairs(binding) do
       --pre-register binding to allocate storage
-      --we need to copy this it gets modified
+      --we need to copy this as it gets modified
       local regmods = { table.unpack(key.mods) }
       register_key({ mods = regmods, key = key.key, action = noop, loop = true, passthrough = true})
 
@@ -43,59 +41,67 @@ function Mode.add(self, bindings)
       --FIXME: need flashier warning
       print("Duplicate binding. Overwriting.")
     end
-    current.action = action
-
-    if #keys == 1 and next(keys[1].mods) == nil and keys[1].key == "escape" then
-      escape_bound = true
-    end
-  end
-
-  --FIXME: allow multiple calls to add
-  --escape by default returns to normal mode
-  if not escape_bound then
-    self.bindings[{ mods = { }, key = "escape" }] = { action = normal:mode() }
+    current.action = binding.cmd
   end
 end
 
-function Mode.mode(self)
-  --return a function so it can be used as a callback
-  return function()
-    if mode then
-      --unbind previous mode
-      for idx, _ in pairs(mode.bindings) do
-        if idx ~= "action" then
-          --we need to copy this it gets modified
-          local regmods = { table.unpack(idx.mods) }
-          register_key({ mods = regmods, key = idx.key, action = noop, loop = true, passthrough = true})
-        end
-      end
+local function unbind(bindings)
+  for key, val in pairs(bindings) do
+    if key == "action" then
+      unbind(val)
+    else
+      --we need to copy this as it gets modified
+      local regmods = { table.unpack(key.mods) }
+      register_key({ mods = regmods, key = key.key, action = noop, loop = true, passthrough = true})
     end
-    mode = self
-    local function do_bindings(bindings)
-      for key, binding in pairs(bindings) do
-        if binding.action ~= nil then
-          --we need to copy this it gets modified
-          local regmods = { table.unpack(key.mods) }
-          register_key({ mods = regmods, key = key.key, action = binding.action, loop = true, passthrough = false})
-        else
-          local regmods = { table.unpack(key.mods) }
-          register_key({ mods = regmods, key = key.key, action = function() do_bindings(binding) end, loop = true, passthrough = false})
-        end
-      end
-    end
-    do_bindings(self.bindings)
   end
+end
+
+function Mode.enter(self, previous)
+  if mode then
+    unbind(mode.bindings)
+    --make sure escape is unbound
+    register_key({ mods = { }, key = "escape", action = noop, loop = true, passthrough = true})
+  end
+
+  previous = previous or mode
+  mode = self
+
+  local function do_bindings(bindings, rec)
+    for key, binding in pairs(bindings) do
+      if binding.action ~= nil then
+        --we need to copy this as it gets modified
+        local regmods = { table.unpack(key.mods) }
+        register_key({ mods = regmods, key = key.key, action = binding.action, loop = true, passthrough = false})
+      else
+        local regmods = { table.unpack(key.mods) }
+        register_key({ mods = regmods, key = key.key, action = function() do_bindings(binding, true) end, loop = true, passthrough = false})
+      end
+    end
+    --escape by default returns to normal mode
+    local _, first = next(bindings)
+    if self ~= normal and not (#first == 1 and next(first[1].mods) == nil and first[1].key == "escape") then
+      local target = rec and mode ~= previous and mode or previous
+      register_key({ mods = { }, key = "escape", action = target:mode(previous), loop = true, passthrough = false})
+    end
+  end
+  do_bindings(self.bindings, false)
+end
+
+function Mode.mode(self, ...)
+  --returns self.enter() as a function so it can be used as a callback
+  local args = { ... }
+  return function() self:enter(table.unpack(args)) end
 end
 
 local function key(mod, key, cmd)
   if type(mod) == "string" then
     assert(cmd == nil)
     --mod, key, cmd = { }, mod, key
-    return { { { mods = { }, key = mod } }, key }
+    return { { mods = { }, key = mod }, cmd = key }
   end
 
-  --FIXME change to flat table { mod=, key=, cmd= }
-  return { { { mods = mod, key = key } }, cmd }
+  return { { mods = mod, key = key }, cmd = cmd }
 end
 
 local function chain(keys, cmd)
@@ -106,7 +112,8 @@ local function chain(keys, cmd)
       keys[i] = { mods = key[1], key = key[2] }
     end
   end
-  return { keys, cmd }
+  keys.cmd = cmd
+  return keys
 end
 
 return {
