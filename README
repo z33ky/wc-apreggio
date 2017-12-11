@@ -6,6 +6,10 @@ Instead of carrying out an action after hitting a key-combination, a mode may be
 You could set `Alt+m` to enter `move`-mode for instance, where the arrow keys can be used to move the current window until you press `return` or `escape`.
 `escape` exits to `normal`-mode by default. When starting to enter keys of chain-bindings, `escape` resets the state to the beginning of the current mode, i.e. in the example below after pressing `Alt+s` to enter `spawn`-mode and then pressing `f` followed by `escape` returns to `spawn`-mode proper. A second `escape` would return to `normal`-mode.
 
+It basically works, but needs proper documentation, testing and should probably come with more complete sample bindings.
+The project is currently in hibernation, as the machine I am planning to run Way-Cooler on is rather weak and the compositor runs quite slow compared to Awesome, my current WM of choice.
+I am hoping the planned port to [wlroots](https://github.com/swaywm/wlroots-rs) will improve this.
+
 To use this extension, add the following to your `init.lua`:
 ```
 --load apreggio
